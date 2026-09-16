@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/postcss';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
-  root:fileURLToPath(new URL('./pages',import.meta.url)),
+  root:fileURLToPath(new URL('./static-site',import.meta.url)),
   base:'/Vex-Rank/',
   publicDir:fileURLToPath(new URL('./public',import.meta.url)),
   resolve:{alias:{'@':fileURLToPath(new URL('.',import.meta.url))}},

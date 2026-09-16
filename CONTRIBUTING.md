@@ -29,7 +29,7 @@ Paths below are relative to `website/`.
 | Area | Start here | Responsibility |
 | --- | --- | --- |
 | Website views and navigation | `app/page.tsx`, `app/globals.css` | Main React UI, selected seasons, loading states and rendering |
-| Pages entry point | `pages/main.tsx`, `vite.pages.config.ts` | Static frontend using the shared main UI and separate API origin |
+| Pages entry point | `static-site/main.tsx`, `vite.pages.config.ts` | Static frontend using the shared main UI and separate API origin |
 | API routes | `app/api/` | Events, event details, team profiles, skills and sampled rankings |
 | Upstream requests | `lib/vex-api.ts` | Bounded concurrency, pagination, retries and successful-page cache |
 | Rating calculations | `lib/vcr3.mjs` | Shared event evidence, settlement and audit history |
