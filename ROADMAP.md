@@ -40,6 +40,12 @@ Legend:
 - RobotEvents exposes no team imagery (The shaped team payload carries id, number, name, organization, robot, grade, region, country, registered, active, currentSeasonEvents, seasons. No logo, avatar or photo field exists anywhere in the data layer. Worth one confirmation against the raw API with the token, but assume self-hosted.) [9/17/2026]
 - Consequence: Team Logo, Gallery and Link/Website collapse into one platform decision (All three need somewhere to store user-submitted content plus moderation, which makes them depend on User Account and Login rather than being independent items. Login is currently marked optional; these three are what would make it non-optional.) [9/17/2026]
 
+### Content blockers break the site, and only a deployment change truly fixes it
+
+- Every data request is third-party, which is what blockers drop (The site is served from GitHub Pages while the API lives on a separate *.workers.dev origin. workers.dev appears on several blocklists because it is free and widely abused, and strict blocker modes drop cross-origin XHR outright. The request then fails at the network layer with a TypeError and no status.) [9/17/2026]
+- Mitigated in the client, not solved (Blocked requests are now detected and reported as "a browser content blocker or privacy extension is the usual cause", with a retry, instead of a generic failure or a false "no events". The data still does not load - the reader is just told why and what to do.) [9/17/2026] {9/17/2026}
+- The real fix is to stop being third-party (Serve the API from the same origin as the page, or put it behind a custom domain that is not workers.dev. Same-origin requests are essentially never blocked, because blockers do not block a page's requests to its own host. The Worker already serves /api/* and the archive assets, so pointing a custom domain at it - and ideally serving the static site from it too - would remove the whole class of problem. Needs a domain and a deployment change, not a code change.) [9/17/2026]
+
 ### Publishing and update frequency — one blocker found
 
 - Backend returns intermittent 502s (Five consecutive calls to /api/events?season=197 gave 502, 200, 200, 200, 200, first success taking 4.7s, which looks like an upstream cold start. The frontend now retries with backoff, so users rarely see it, but the underlying flakiness should be understood before real traffic.) [9/17/2026]

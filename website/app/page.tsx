@@ -81,6 +81,24 @@ const eventDetailUrl=(id:string|number)=>`/api/events/${id}?results=v49`;
  * Only 5xx and network errors are retried: a 4xx will not fix itself, and a
  * timeout has already cost 60s so retrying it just compounds the wait.
  */
+/**
+ * The site is served from GitHub Pages while the data service lives on a
+ * separate *.workers.dev origin, so every data request is third-party. Content
+ * blockers drop those: workers.dev appears on several lists, and strict modes
+ * block cross-origin XHR outright. The request then fails at the network layer
+ * with a TypeError and no status, which is indistinguishable from being offline
+ * but very distinguishable from a server error - so it is worth saying out loud
+ * rather than reporting "temporarily unavailable".
+ */
+const UNREACHABLE='Could not reach the ranking service. A browser content blocker or privacy extension is the usual cause - allow this site and reload. You may also be offline.';
+const OFFLINE='You appear to be offline. Reconnect and retry.';
+const isNetworkLevel=(error:any)=>error instanceof TypeError;
+const describeFetchError=(error:any,fallback:string)=>{
+  if(error?.message===UNREACHABLE||error?.message===OFFLINE)return error.message;
+  if(isNetworkLevel(error))return navigator.onLine===false?OFFLINE:UNREACHABLE;
+  return fallback;
+};
+
 async function fetchWithBackoff(url:string,attempts=3){
   let lastError:any=new Error('Request failed');
   for(let attempt=0;attempt<attempts;attempt++){
@@ -89,7 +107,12 @@ async function fetchWithBackoff(url:string,attempts=3){
       if(response.status<500||attempt===attempts-1)return response;
       lastError=new Error(`Upstream returned ${response.status}`);
     }catch(error:any){
-      if(error?.name==='TimeoutError'||attempt===attempts-1)throw error;
+      if(error?.name==='TimeoutError')throw error;
+      // A block is deterministic, so retrying it three times only delays the
+      // message by ~750ms. Allow one retry to cover a genuine network blip,
+      // then report something the reader can act on.
+      if(isNetworkLevel(error)&&attempt>=1) throw new Error(navigator.onLine===false?OFFLINE:UNREACHABLE);
+      if(attempt===attempts-1) throw isNetworkLevel(error)?new Error(navigator.onLine===false?OFFLINE:UNREACHABLE):error;
       lastError=error;
     }
     // Exponential backoff with jitter, so a burst of parallel requests does not
@@ -181,7 +204,7 @@ export default function Home() {
     setEventsLoading(true);setEventsError('');setLiveEvents([]);setEventsLive(false);
     cachedJson(`/api/events?season=${seasonId}&classification=v49`,eventCalendarCache,seasonId).then((payload:any) => {
       if (active && Array.isArray(payload.events)) { setLiveEvents(payload.events); setEventsLive(true); }
-    }).catch(() => {if(active)setEventsError('Events could not be loaded. Please retry.');}).finally(()=>{if(active)setEventsLoading(false)});
+    }).catch((error:any) => {if(active)setEventsError(describeFetchError(error,'Events could not be loaded. Please retry.'));}).finally(()=>{if(active)setEventsLoading(false)});
     return () => { active = false; };
   }, [eventExtras.season,eventsRetry]);
 
@@ -202,7 +225,7 @@ export default function Home() {
     if(!['home','rankings','stats','teams'].includes(view)||rankingsMeta)return;
     let active=true;
     setRankingsError('');
-    siteFetch('/api/rankings?data=v49').then(response=>response.ok?response.json():Promise.reject()).then((payload:any)=>{if(active&&Array.isArray(payload.rankings)){setLiveTeams(payload.rankings);setRankingsMeta(payload)}}).catch(()=>{if(active)setRankingsError('Rankings are temporarily unavailable. Please retry.');});
+    fetchWithBackoff('/api/rankings?data=v49').then(response=>response.ok?response.json():Promise.reject(new Error('Rankings request failed'))).then((payload:any)=>{if(active&&Array.isArray(payload.rankings)){setLiveTeams(payload.rankings);setRankingsMeta(payload)}}).catch((error:any)=>{if(active)setRankingsError(describeFetchError(error,'Rankings are temporarily unavailable. Please retry.'));});
     return()=>{active=false};
   },[rankingsRetry,view]);
 
