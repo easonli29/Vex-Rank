@@ -33,8 +33,8 @@ export default function SignedNumber({ value, accentFrom, className = '' }: { va
       return;
     }
 
-    const PEN_SPEED = 1.15;   // ms per user unit, at the start of the signature
-    const PEN_LIFT = 70;      // pause between strokes, as the hand repositions
+    const PEN_SPEED = 0.92;   // ms per user unit, at the start of the signature
+    const PEN_LIFT = 56;      // pause between strokes, as the hand repositions
     const FINAL_DRAG = 1.35;  // extra slowness by the last character (2.35x total)
     const animations: Animation[] = [];
     let at = 180;             // let the profile header settle first
