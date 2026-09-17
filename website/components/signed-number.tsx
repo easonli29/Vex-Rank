@@ -16,6 +16,8 @@ import { strokesFor, canDraw, GLYPH_ADVANCE, GLYPH_HEIGHT } from '@/lib/stroke-g
  * a fixed duration per stroke is what makes this kind of animation read as
  * mechanical rather than handwritten.
  */
+const STROKE_WIDTH = 7;
+
 export default function SignedNumber({ value, accentFrom, className = '' }: { value: string; accentFrom?: number; className?: string }) {
   const root = useRef<SVGSVGElement | null>(null);
   const text = String(value ?? '');
@@ -52,11 +54,20 @@ export default function SignedNumber({ value, accentFrom, className = '' }: { va
       const drag = 1 + FINAL_DRAG * through ** 1.7;
 
       const length = path.getTotalLength();
-      path.style.strokeDasharray = String(length);
-      path.style.strokeDashoffset = String(length);
+      // The gap must be longer than the path, not merely equal to it.
+      // A one-value stroke-dasharray of L expands to [L, L] - a pattern of
+      // period 2L that repeats - so an offset of exactly L leaves a zero-length
+      // dash at position 0, which stroke-linecap: round paints as a dot, and
+      // merely pushing the offset past that just wraps the dash back in at the
+      // far end of the path as a short stub. Giving the gap L + 2*strokeWidth
+      // makes the period long enough that the dash re-enters beyond the path
+      // end, so an undrawn stroke paints nothing at all.
+      const parked = length + STROKE_WIDTH;
+      path.style.strokeDasharray = `${length} ${length + STROKE_WIDTH * 2}`;
+      path.style.strokeDashoffset = String(parked);
       const duration = Math.max(120, length * PEN_SPEED * drag);
       animations.push(path.animate(
-        [{ strokeDashoffset: length }, { strokeDashoffset: 0 }],
+        [{ strokeDashoffset: parked }, { strokeDashoffset: 0 }],
         { duration, delay: at, easing: 'cubic-bezier(0.32, 0, 0.35, 1)', fill: 'both' },
       ));
       at += duration + PEN_LIFT * drag;
@@ -87,7 +98,7 @@ export default function SignedNumber({ value, accentFrom, className = '' }: { va
               d={d}
               fill="none"
               stroke={accentFrom !== undefined && index >= accentFrom ? 'var(--c-accent)' : 'currentColor'}
-              strokeWidth={7}
+              strokeWidth={STROKE_WIDTH}
               strokeLinecap="round"
               strokeLinejoin="round"
               data-character={index}
