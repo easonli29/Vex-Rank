@@ -256,7 +256,15 @@ export default function Home() {
     return()=>{window.removeEventListener('pointermove',onMove);if(frame)cancelAnimationFrame(frame)};
   },[]);
 
-  const go = (next: View) => { setView(next); setMobile(false); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const go = (next: View) => {
+    setView(next); setMobile(false);
+    // Instant, not smooth. A smooth scroll from deep in a long list takes
+    // ~700ms, during which the new view is already rendered and its entrance
+    // animations have started - on a team profile that means the signature is
+    // being written above the fold while the viewport is still travelling.
+    // Real navigation jumps; only in-page scrolling should glide.
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  };
   const openTeam = (team: any) => { void prefetchTeam(team.number,team.seasonId,team.id);setSelectedTeam(team); setTeamReturnView(view); go('team'); };
   const openEvent = (event:any) => { void prefetchEvent(event.id);setSelectedEvent(event); go('event'); };
   const submitGlobal = () => { const q=globalSearch.trim(); if(q){setTeamSearch(q);setTeamRegion('All');setTeamDirectoryRegion('All');setRankingRange('All');go('teams');} };
