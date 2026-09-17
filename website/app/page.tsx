@@ -180,14 +180,18 @@ export default function Home() {
   useEffect(()=>{
     try {
       const saved=JSON.parse(sessionStorage.getItem('vexrank-navigation')??'null');
-      if(saved){if(saved.view)setView(saved.view);if(saved.selectedTeam)setSelectedTeam(saved.selectedTeam);if(saved.selectedEvent)setSelectedEvent(saved.selectedEvent);if(saved.eventSearch!=null)setEventSearch(saved.eventSearch);
-      const linked=hashToRoute(window.location.hash);
-      if(linked){
-        if(linked.teamNumber)setSelectedTeam({number:linked.teamNumber,name:''});
-        if(linked.eventId)setSelectedEvent({id:linked.eventId});
-        setView(linked.view);
-      }if(saved.teamSearch!=null)setTeamSearch(saved.teamSearch);if(saved.region)setRegion(saved.region);if(saved.eventClass)setEventClass(saved.eventClass);if(saved.format)setFormat(saved.format);if(saved.time)setTime(saved.time);if(saved.grade)setGrade(saved.grade);if(saved.eventExtras)setEventExtras(saved.eventExtras);if(saved.teamRegion)setTeamRegion(saved.teamRegion);if(saved.teamDirectoryRegion)setTeamDirectoryRegion(saved.teamDirectoryRegion);if(saved.rankingRange)setRankingRange(saved.rankingRange);if(saved.rankingViewState)setRankingViewState(saved.rankingViewState);if(saved.teamReturnView)setTeamReturnView(saved.teamReturnView);requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,saved.scrollY??0)))}
+      if(saved){if(saved.view)setView(saved.view);if(saved.selectedTeam)setSelectedTeam(saved.selectedTeam);if(saved.selectedEvent)setSelectedEvent(saved.selectedEvent);if(saved.eventSearch!=null)setEventSearch(saved.eventSearch);if(saved.teamSearch!=null)setTeamSearch(saved.teamSearch);if(saved.region)setRegion(saved.region);if(saved.eventClass)setEventClass(saved.eventClass);if(saved.format)setFormat(saved.format);if(saved.time)setTime(saved.time);if(saved.grade)setGrade(saved.grade);if(saved.eventExtras)setEventExtras(saved.eventExtras);if(saved.teamRegion)setTeamRegion(saved.teamRegion);if(saved.teamDirectoryRegion)setTeamDirectoryRegion(saved.teamDirectoryRegion);if(saved.rankingRange)setRankingRange(saved.rankingRange);if(saved.rankingViewState)setRankingViewState(saved.rankingViewState);if(saved.teamReturnView)setTeamReturnView(saved.teamReturnView);requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,saved.scrollY??0)))}
     } catch {}
+    // Outside the try, and outside the saved branch: an explicit URL must win
+    // over restored state, and must still work when there is no saved state at
+    // all - a link pasted into a different browser is the whole point.
+    const linked=hashToRoute(window.location.hash);
+    if(linked){
+      if(linked.teamNumber)setSelectedTeam({number:linked.teamNumber,name:''});
+      if(linked.eventId)setSelectedEvent({id:linked.eventId});
+      setView(linked.view);
+      window.scrollTo({top:0,behavior:'instant' as ScrollBehavior});
+    }
     setNavigationRestored(true);
   },[]);
 
