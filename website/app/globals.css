@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,300..800&family=Source+Serif+4:opsz,wght@8..60,400..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,300..800&family=Source+Serif+4:opsz,wght@8..60,400..700&family=Caveat:wght@500..700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
@@ -97,6 +97,11 @@ h1, h2, h3 { overflow-wrap: anywhere; }
   --font-claude-sans: 'Styrene B', 'Styrene A', 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-claude-serif: 'Copernicus', 'Tiempos Headline', 'Tiempos Text', 'Source Serif 4', ui-serif, Georgia, 'Times New Roman', serif;
   --font-claude-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  /* Team numbers on a profile are signed rather than set: Caveat is a
+     handwriting face whose digits stay legible, which most scripts do not -
+     team numbers are alphanumeric (31260X) and cannot afford a decorative
+     figure set. */
+  --font-signature: 'Caveat', 'Segoe Script', 'Bradley Hand', cursive;
 
   /* Palette ---------------------------------------------------------------
      Every surface and the accent live here so a theme is a token swap and
@@ -286,15 +291,18 @@ html.dark { --background: var(--c-page); }
      ruled almanac, this one page gets the masthead-scale lockup. Weight, not
      colour, splits the identifier: light digits, heavy letter suffix. */
   .team-lockup {
-    font-family: var(--font-claude-sans);
-    font-size: clamp(3.25rem, 13vw, 9rem);
-    line-height: 0.86;
-    letter-spacing: -0.045em;
-    text-transform: uppercase;
+    font-family: var(--font-signature);
+    /* Script faces carry far less weight per em than a grotesque, so this runs
+       larger than the sans lockup it replaces to hold the same presence. */
+    font-size: clamp(4.5rem, 17vw, 12rem);
+    line-height: 0.92;
+    /* No uppercase and no negative tracking: both wreck the joins in a script. */
+    letter-spacing: 0;
+    padding-bottom: 0.08em;   /* room for descenders and the tail of a swash */
   }
 
-  .team-lockup-digits { font-weight: 300; }
-  .team-lockup-suffix { font-weight: 800; color: var(--c-accent); }
+  .team-lockup-digits { font-weight: 600; }
+  .team-lockup-suffix { font-weight: 700; color: var(--c-accent); }
 
   .team-figure {
     font-family: var(--font-claude-mono);
@@ -325,6 +333,27 @@ html.dark { --background: var(--c-page); }
 
   @media (prefers-reduced-motion: no-preference) {
     .rise, .team-band .band-item { opacity: 0; }
+
+    /* The team number is signed on. A left-to-right clip reveal reads as a pen
+       stroke across a handwriting face - far more convincing here than an SVG
+       stroke-dash trace, which draws every glyph outline at once and needs real
+       path data the team numbers do not have.
+       The inset keeps slack on three sides so descenders and the tail of the
+       suffix are never clipped mid-animation. */
+    @keyframes sign-on {
+      from { clip-path: inset(-12% 100% -30% -4%); }
+      to   { clip-path: inset(-12% -8% -30% -4%); }
+    }
+
+    .team-lockup { opacity: 0; }
+
+    .team-lockup {
+      animation: rise 620ms cubic-bezier(0.22, 0.61, 0.36, 1) both,
+                 sign-on 1150ms cubic-bezier(0.62, 0.04, 0.29, 1) both;
+      /* The stroke starts just after the element has faded in, so the hand
+         appears to arrive and then write. */
+      animation-delay: calc(var(--i, 0) * 110ms), calc(var(--i, 0) * 110ms + 150ms);
+    }
 
     /* Hold the whole band, not just its contents. The band is ~745px tall, so
        its top edge sits on screen long before it is scrolled to - and painting
