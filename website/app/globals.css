@@ -290,19 +290,15 @@ html.dark { --background: var(--c-page); }
   /* Team profile is treated as a feature spread: the rest of the site is the
      ruled almanac, this one page gets the masthead-scale lockup. Weight, not
      colour, splits the identifier: light digits, heavy letter suffix. */
+  /* The number is drawn, not set: SignedNumber renders one path per pen stroke
+     and traces them in order. Height rather than font-size drives the scale. */
   .team-lockup {
-    font-family: var(--font-signature);
-    /* Script faces carry far less weight per em than a grotesque, so this runs
-       larger than the sans lockup it replaces to hold the same presence. */
-    font-size: clamp(4.5rem, 17vw, 12rem);
-    line-height: 0.92;
-    /* No uppercase and no negative tracking: both wreck the joins in a script. */
-    letter-spacing: 0;
-    padding-bottom: 0.08em;   /* room for descenders and the tail of a swash */
+    display: block;
+    height: clamp(5rem, 16vw, 11rem);
+    color: #fff;
   }
 
-  .team-lockup-digits { font-weight: 600; }
-  .team-lockup-suffix { font-weight: 700; color: var(--c-accent); }
+  .team-lockup svg { height: 100%; width: auto; max-width: 100%; }
 
   .team-figure {
     font-family: var(--font-claude-mono);
