@@ -150,7 +150,6 @@ function EventStatus({ value='Upcoming' }: { value?: string }) { const normalize
 export default function Home() {
   const [view, setView] = useState<View>('home');
   const [mobile, setMobile] = useState(false);
-  const [globalSearch, setGlobalSearch] = useState('');
   const [eventSearch, setEventSearch] = useState('');
   const [region, setRegion] = useState('All');
   const [eventClass, setEventClass] = useState('All');
@@ -290,7 +289,6 @@ export default function Home() {
   };
   const openTeam = (team: any) => { void prefetchTeam(team.number,team.seasonId,team.id);setSelectedTeam(team); setTeamReturnView(view); go('team'); };
   const openEvent = (event:any) => { void prefetchEvent(event.id);setSelectedEvent(event); go('event'); };
-  const submitGlobal = () => { const q=globalSearch.trim(); if(q){setTeamSearch(q);setTeamRegion('All');setTeamDirectoryRegion('All');setRankingRange('All');go('teams');} };
 
   const shownEvents = useMemo(() => eventRows.filter((e:any) => {
     if (!eventExtras.includeCanceled && /cancell?ed/i.test(e.status ?? e.name)) return false;
@@ -313,9 +311,7 @@ export default function Home() {
         <nav className="hidden h-full items-center gap-7 text-sm font-semibold text-white/55 md:flex">
           {([['events','Events'],['rankings','Rankings'],['stats','Stat leaders'],['teams','Teams']] as const).map(([id,label]) => <button key={id} onClick={() => go(id)} className={`h-full border-b-2 transition ${view === id || (view === 'team' && id === teamReturnView) ? 'border-[var(--c-accent)] text-white' : 'border-transparent hover:text-white'}`}>{label}</button>)}
         </nav>
-        <form onSubmit={e => { e.preventDefault(); submitGlobal(); }} className="ml-auto hidden w-full max-w-xs items-center gap-2 border-0 border-b border-white/15 px-0 focus-within:border-white/40 sm:flex">
-          <Search className="h-4 w-4 text-white/50" /><input value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} className="h-9 w-full border-0 bg-transparent px-0 text-sm text-white outline-none placeholder:text-white/45" placeholder="Search team number or name" aria-label="Search teams" />
-        </form>
+        <div className="ml-auto" />
         <ThemePicker />
         <button className="ml-auto md:hidden" onClick={() => setMobile(!mobile)} aria-label="Toggle navigation">{mobile ? <X /> : <Menu />}</button>
       </div>
