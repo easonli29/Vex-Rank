@@ -27,7 +27,33 @@ const teamHistoryCache=new Map<string,any>();
 const requestCache=new Map<string,Promise<any>>();
 const cacheTimes=new Map<string,number>();
 const eventDetailUrl=(id:string|number)=>`/api/events/${id}?results=v49`;
-async function cachedJson(url:string,cache:Map<string,any>,key:string){if(cache.has(key)&&Date.now()-(cacheTimes.get(url)??0)<300000)return cache.get(key);if(requestCache.has(url))return requestCache.get(url);const request=siteFetch(url,{signal:AbortSignal.timeout(60000)}).then(async response=>{const data:any=await response.json();if(!response.ok)throw new Error(data.error||'Request failed');cache.set(key,data);cacheTimes.set(url,Date.now());return data}).catch(error=>{if(error?.name==='TimeoutError')throw new Error('Official data took too long to load. Please retry.');throw error}).finally(()=>requestCache.delete(url));requestCache.set(url,request);return request}
+/**
+ * Retries transient upstream failures. The test worker returns intermittent
+ * 502s, which previously surfaced to the user as a bare error or - worse, on
+ * the home view - as a confident "no events" message.
+ *
+ * Only 5xx and network errors are retried: a 4xx will not fix itself, and a
+ * timeout has already cost 60s so retrying it just compounds the wait.
+ */
+async function fetchWithBackoff(url:string,attempts=3){
+  let lastError:any=new Error('Request failed');
+  for(let attempt=0;attempt<attempts;attempt++){
+    try{
+      const response=await siteFetch(url,{signal:AbortSignal.timeout(60000)});
+      if(response.status<500||attempt===attempts-1)return response;
+      lastError=new Error(`Upstream returned ${response.status}`);
+    }catch(error:any){
+      if(error?.name==='TimeoutError'||attempt===attempts-1)throw error;
+      lastError=error;
+    }
+    // Exponential backoff with jitter, so a burst of parallel requests does not
+    // retry in lockstep: ~250ms, ~500ms.
+    await new Promise(resolve=>setTimeout(resolve,250*(2**attempt)+Math.random()*120));
+  }
+  throw lastError;
+}
+
+async function cachedJson(url:string,cache:Map<string,any>,key:string){if(cache.has(key)&&Date.now()-(cacheTimes.get(url)??0)<300000)return cache.get(key);if(requestCache.has(url))return requestCache.get(url);const request=fetchWithBackoff(url).then(async response=>{const data:any=await response.json();if(!response.ok)throw new Error(data.error||'Request failed');cache.set(key,data);cacheTimes.set(url,Date.now());return data}).catch(error=>{if(error?.name==='TimeoutError')throw new Error('Official data took too long to load. Please retry.');throw error}).finally(()=>requestCache.delete(url));requestCache.set(url,request);return request}
 const prefetchEvent=(id:string|number)=>cachedJson(eventDetailUrl(id),eventDetailCache,String(id)).catch(()=>undefined);
 const teamCacheKey=(number:string,seasonId?:string|number,teamId?:string|number)=>`${number.toUpperCase()}:${seasonId??'all'}:${teamId??'search'}`;
 const teamProfileUrl=(number:string,seasonId?:string|number,teamId?:string|number)=>`/api/teams/${encodeURIComponent(number)}?profile=v8${seasonId?`&season=${seasonId}`:''}${teamId?`&teamId=${teamId}`:''}`;
@@ -196,7 +222,7 @@ export default function Home() {
     </header>
 
     <div key={view} className="view-enter">
-    {view === 'home' && <HomeView go={go} openTeam={openTeam} openEvent={openEvent} eventRows={homeEvents} teamRows={teamRows} />}
+    {view === 'home' && <HomeView go={go} openTeam={openTeam} openEvent={openEvent} eventRows={homeEvents} teamRows={teamRows} loading={eventsLoading} error={eventsError} retry={()=>setEventsRetry(value=>value+1)} />}
     {view === 'events' && <EventsView loading={eventsLoading} error={eventsError} retry={()=>setEventsRetry(value=>value+1)} results={shownEvents} live={eventsLive} openEvent={openEvent} search={eventSearch} setSearch={setEventSearch} filters={{region,eventClass,format,time,grade}} setters={{setRegion,setEventClass,setFormat,setTime,setGrade}} extras={eventExtras} setExtras={setEventExtras} />}
     {view === 'event' && <EventInfoView key={selectedEvent.id} event={selectedEvent} goBack={() => go('events')} openTeam={openTeam} />}
     {(view==='rankings'||view==='stats'||view==='home')&&rankingsError&&<LoadError message={rankingsError} retry={()=>setRankingsRetry(value=>value+1)} />}
@@ -210,7 +236,7 @@ export default function Home() {
   </main>;
 }
 
-function HomeView({ go, openTeam, openEvent, eventRows, teamRows }: { go: (v: View) => void; openTeam: (t:any) => void; openEvent:(event:any)=>void; eventRows: typeof events; teamRows:any[] }) {
+function HomeView({ go, openTeam, openEvent, eventRows, teamRows, loading, error, retry }: { go: (v: View) => void; openTeam: (t:any) => void; openEvent:(event:any)=>void; eventRows: typeof events; teamRows:any[]; loading?:boolean; error?:string; retry?:()=>void }) {
   const upcomingSignatures=eventRows.filter((event:any)=>event.class==='Signature Event'&&!/cancell?ed/i.test(event.status)&&event.date>=new Date().toISOString().slice(0,10));
   const bestByDate=new Map<string,any>();upcomingSignatures.forEach((event:any)=>{const current=bestByDate.get(event.date);if(!current||(event.rankScore??0)>(current.rankScore??0))bestByDate.set(event.date,event)});
   const featured=[...bestByDate.values()].sort((a:any,b:any)=>a.date.localeCompare(b.date)||(b.rankScore??0)-(a.rankScore??0));
@@ -219,7 +245,9 @@ function HomeView({ go, openTeam, openEvent, eventRows, teamRows }: { go: (v: Vi
     <section className="mx-auto max-w-[1440px] px-5 pb-8 pt-10 lg:px-8">
       <div className="mb-6 flex items-end justify-between gap-4"><div><p className="mb-1.5 text-[11px] italic text-white/45">2026–27 V5RC season</p><h1 className="font-display text-3xl tracking-[-.04em] sm:text-5xl">The competition starts here.</h1></div><button onClick={() => go('events')} className="hidden items-center gap-2 text-sm font-bold text-white/60 hover:text-white sm:flex">Browse all events <ArrowUpRight className="h-4 w-4" /></button></div>
       <div className="grid gap-4 lg:grid-cols-[1.65fr_1fr]">
-        {primaryEvent?<article className="relative min-h-[360px] overflow-hidden border border-white/10 bg-[linear-gradient(160deg,#15181e,#0b0e12)] p-7 sm:p-9"><div className="absolute right-5 top-4 text-[150px] font-semibold leading-none text-white/[.025]">01</div><Tier value={primaryEvent.tier} /><div className="mt-16 max-w-xl"><p className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/55"><CalendarDays className="h-4 w-4 text-white/45" /> {new Date(`${primaryEvent.date}T12:00:00`).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</p><h2 className="font-display max-w-3xl text-[1.9rem] leading-[1.15] sm:text-[2.5rem]">{primaryEvent.name}</h2><p className="mt-4 flex items-center gap-2 text-sm text-white/55"><MapPin className="h-4 w-4" /> {primaryEvent.city}{primaryEvent.teams ? ` · ${primaryEvent.teams} teams` : ''} · {primaryEvent.grade}</p><p className="mt-2 text-xs text-white/50">{primaryEvent.rankLocked?'Event rank locked':'Rank locks'} · {new Date(primaryEvent.rankLockDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p></div><button onClick={() => openEvent(primaryEvent)} className="mt-8 inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-black hover:bg-[#ed2b3a] hover:text-white">View event <ArrowUpRight className="h-4 w-4" /></button></article>:<Empty text="No upcoming Signature Events are currently listed." />}
+        {primaryEvent?<article className="relative min-h-[360px] overflow-hidden border border-white/10 bg-[linear-gradient(160deg,#15181e,#0b0e12)] p-7 sm:p-9"><div className="absolute right-5 top-4 text-[150px] font-semibold leading-none text-white/[.025]">01</div><Tier value={primaryEvent.tier} /><div className="mt-16 max-w-xl"><p className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/55"><CalendarDays className="h-4 w-4 text-white/45" /> {new Date(`${primaryEvent.date}T12:00:00`).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</p><h2 className="font-display max-w-3xl text-[1.9rem] leading-[1.15] sm:text-[2.5rem]">{primaryEvent.name}</h2><p className="mt-4 flex items-center gap-2 text-sm text-white/55"><MapPin className="h-4 w-4" /> {primaryEvent.city}{primaryEvent.teams ? ` · ${primaryEvent.teams} teams` : ''} · {primaryEvent.grade}</p><p className="mt-2 text-xs text-white/50">{primaryEvent.rankLocked?'Event rank locked':'Rank locks'} · {new Date(primaryEvent.rankLockDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p></div><button onClick={() => openEvent(primaryEvent)} className="mt-8 inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-black hover:bg-[#ed2b3a] hover:text-white">View event <ArrowUpRight className="h-4 w-4" /></button></article>:loading?<div className="min-h-[360px] animate-pulse rounded-xl border border-white/10 bg-[#101319] p-7 sm:p-9"><div className="h-3 w-40 rounded bg-white/10" /><div className="mt-6 h-9 w-3/4 rounded bg-white/10" /><div className="mt-3 h-9 w-1/2 rounded bg-white/10" /><div className="mt-8 h-4 w-56 rounded bg-white/10" /></div>
+        :error?<LoadError message={error} retry={retry??(()=>undefined)} />
+        :<Empty text="No upcoming Signature Events are currently listed." />}
         <aside className="overflow-hidden border border-white/10 bg-[#101319]"><SectionTitle eyebrow={liveTeamsLabel(teamRows)} title="World ranking" />{teamRows.slice(0,5).map(t => <button onClick={() => openTeam(t)} key={t.number} className="grid w-full grid-cols-[32px_1fr_auto] items-center gap-3 border-b border-white/[.07] px-5 py-3.5 text-left hover:bg-white/[.04]"><b className="text-lg text-white/25">{String(t.rank).padStart(2,'0')}</b><span><b className="block">{t.number}</b><small className="block truncate text-white/55">{t.name}</small></span><span className="text-right"><b className="block font-mono">{t.rating}</b><small className="text-white/45">±{t.confidence ?? '—'}</small></span></button>)}<button onClick={() => go('rankings')} className="flex w-full items-center justify-center gap-2 px-5 py-4 text-xs font-semibold uppercase tracking-wider text-white/55 hover:text-white">Full ranking <ArrowRight className="h-3.5 w-3.5" /></button></aside>
       </div>
     </section>
