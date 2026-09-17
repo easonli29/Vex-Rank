@@ -1,6 +1,7 @@
 import { vexCollection } from '@/lib/vex-api';
 import seasonGradeOverrides from '@/lib/season-grade-overrides.json';
 import { processCompletedEvent, VCR_VERSION } from '@/lib/vcr3.mjs';
+import { decayedRating as computeRating } from '@/lib/vcr-scoring.mjs';
 
 const API_ROOT = 'https://events.vex.com/api/v2';
 const CURRENT_SEASON = 204;
@@ -61,13 +62,31 @@ export async function GET(request: Request, context: { params: Promise<{number:s
   for(const row of rankings){const event=eventMap.get(row.event?.id) as any;const seasonId=Number(event?.season?.id);const hint=gradeFromContext(`${event?.name??''} ${row.division?.name??''}`);if(!seasonId||!hint)continue;const evidence=evidenceFor(seasonId);(hint==='Middle School'?evidence.middle:evidence.high).add(event.id)}
   const organizationGrade=gradeFromOrganization(team.organization);
   const seasonGrades=Object.fromEntries([...seasonIds].map(value=>{const seasonId=Number(value);const evidence=evidenceFor(seasonId);const eventGrade=evidence.middle.size===evidence.high.size?null:evidence.middle.size>evidence.high.size?'Middle School':'High School';const verifiedGrade=(seasonGradeOverrides as Record<string,Record<string,string>>)[String(seasonId)]?.[team.number];return[seasonId,verifiedGrade??eventGrade??organizationGrade??team.grade??'Unknown']}));
-  const ratingStates=new Map<number,any>(),ratingHistoryByTeam=new Map<number,any[]>();
-  for(const event of [...sortedEvents].sort((a:any,b:any)=>String(a.start).localeCompare(String(b.start)))){
-    const seasonId=Number(event.season?.id);if(!seasonId)continue;
-    const eventMatches=(matchesByEvent.get(event.id)??[]).filter((match:any)=>match.started).sort((a:any,b:any)=>String(a.scheduled??a.started).localeCompare(String(b.scheduled??b.started)));
-    if(eventMatches.length)processCompletedEvent({event,matches:eventMatches,states:ratingStates,historyByTeam:ratingHistoryByTeam});
+  // Season-scoped, one fresh state per season, because /api/rankings does the
+  // same. Accumulating a whole career here made a veteran team's graph end
+  // ~111 points above the rating its own ranking row showed.
+  const ratingHistoryByTeam=new Map<number,any[]>();
+  const orderedEvents=[...sortedEvents].sort((a:any,b:any)=>String(a.start).localeCompare(String(b.start)));
+  const seasonsInOrder=[...new Set(orderedEvents.map((event:any)=>Number(event.season?.id)).filter(Boolean))];
+  for(const seasonId of seasonsInOrder){
+    const seasonStates=new Map<number,any>();
+    for(const event of orderedEvents){
+      if(Number(event.season?.id)!==seasonId)continue;
+      const eventMatches=(matchesByEvent.get(event.id)??[]).filter((match:any)=>match.started).sort((a:any,b:any)=>String(a.scheduled??a.started).localeCompare(String(b.scheduled??b.started)));
+      if(eventMatches.length)processCompletedEvent({event,matches:eventMatches,states:seasonStates,historyByTeam:ratingHistoryByTeam});
+    }
   }
-  const ratingHistory=ratingHistoryByTeam.get(team.id)??[];
+  // Re-express each point through the same decayed formula the ranking uses, so
+  // the last point of the graph equals the rating in the table.
+  const ratingCutoff=new Date();
+  const rawHistory=ratingHistoryByTeam.get(team.id)??[];
+  const bySeason=new Map<number,any[]>();
+  for(const row of rawHistory){const list=bySeason.get(row.seasonId)??[];list.push(row);bySeason.set(row.seasonId,list)}
+  const ratingHistory=rawHistory.map(row=>{
+    const seasonRows=bySeason.get(row.seasonId)??[];
+    const upToHere=seasonRows.slice(0,seasonRows.indexOf(row)+1);
+    return{...row,rating:Math.round(computeRating(upToHere,ratingCutoff))};
+  });
   const response=Response.json({
     team:{id:team.id,number:team.number,name:team.team_name||team.organization||team.number,organization:team.organization||'',robot:team.robot_name||'',grade:team.grade||'Unknown',region:[team.location?.city,team.location?.region,team.location?.country].filter(Boolean).join(', ')||'Unassigned',country:team.location?.country||'Unassigned',registered:Boolean(team.registered),active:currentEvents.length>0,currentSeasonEvents:currentEvents.length,seasons:seasonIds.size},
     events:sortedEvents.map((event:any)=>({id:event.id,sku:event.sku,name:event.name,start:event.start,end:event.end,season:event.season?.name||'Unknown season',seasonId:event.season?.id,level:event.level,location:[event.location?.city,event.location?.region,event.location?.country].filter(Boolean).join(', '),elimination:eliminationByEvent.get(event.id)||'No elimination result'})),

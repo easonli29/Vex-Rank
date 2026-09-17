@@ -1,6 +1,7 @@
 import { vexCollection, mapLimit } from '@/lib/vex-api';
 import seasonGradeOverrides from '@/lib/season-grade-overrides.json';
 import { processCompletedEvent, VCR_VERSION } from '@/lib/vcr3.mjs';
+import { confidenceFor, decayedRating as computeRating } from '@/lib/vcr-scoring.mjs';
 
 const API_ROOT='https://events.vex.com/api/v2';
 const SEASONS:Record<string,{label:string;start:string;end:string}>={
@@ -12,10 +13,9 @@ const SEASONS:Record<string,{label:string;start:string;end:string}>={
 };
 
 type TeamState={id:number;number:string;rating:number;matches:number;wins:number;losses:number;ties:number;pointsFor:number;pointsAgainst:number;events:Set<number>;middleGradeEvents:Set<number>;highGradeEvents:Set<number>};
-const recencyWeight=(date:string,now:Date)=>2**(-Math.max(0,(now.getTime()-new Date(date).getTime())/86400000)/75);
+
 const gradeFromContext=(value:string)=>{const text=String(value??'').toLowerCase().replace(/[_/-]+/g,' ');const middle=/\bmiddle school\b|\bjunior high\b|\bjr\.? high\b|\bms\b/.test(text);const high=/\bhigh school\b|\bsenior high\b|\bhs\b/.test(text);return middle&&!high?'Middle School':high&&!middle?'High School':null};
 const gradeFromOrganization=(value:string)=>/\bmiddle school\b|\bjunior high\b|\bjr\.? high\b|\bintermediate school\b|\belementary school\b/i.test(String(value??''))?'Middle School':/\bhigh school\b|\bsenior high\b|\bsecondary school\b/i.test(String(value??''))?'High School':null;
-async function fetchWithRetry(url:string,headers:Record<string,string>,attempt=0):Promise<Response>{const response=await fetch(url,{headers});if((response.status===429||response.status>=500)&&attempt<3){await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));return fetchWithRetry(url,headers,attempt+1)}return response}
 async function readCache(request:Request){try{return await (globalThis as any).caches?.default?.match(request)}catch{return undefined}}
 async function writeCache(request:Request,response:Response){try{await (globalThis as any).caches?.default?.put(request,response.clone())}catch{}}
 
@@ -44,7 +44,7 @@ export async function GET(request:Request){
   for(const event of completed){const eventMatches=matchesByEvent.get(event.id)??[];processCompletedEvent({event,matches:eventMatches,states,historyByTeam});for(const match of eventMatches)for(const alliance of match.alliances??[])for(const entry of alliance.teams??[]){const team=states.get(entry.team?.id);if(!team)continue;if(match.gradeHint==='Middle School')team.middleGradeEvents.add(event.id);if(match.gradeHint==='High School')team.highGradeEvents.add(event.id)}}
   // Replay uses full internal ratings; the leaderboard separately decays event
   // changes and sorts by rating minus uncertainty. Do not round before sorting.
-  const rated=[...states.values()].filter(team=>team.matches>=4).map(team=>{const confidence=Math.max(35,Math.round(120/Math.sqrt(Math.max(1,team.matches/4))));const history=historyByTeam.get(team.id)??[];const decayedRating=1500+history.reduce((sum,row)=>sum+Number(row.rawChange??row.change)*recencyWeight(row.eventDate,cutoff),0);return{...team,rating:decayedRating,events:team.events.size,confidence,displayedStrength:decayedRating-confidence,form:history.slice(-5).map(row=>({event:row.event,change:row.change,tier:row.tier,champion:row.champion}))}}).sort((a,b)=>b.displayedStrength-a.displayedStrength);
+  const rated=[...states.values()].filter(team=>team.matches>=4).map(team=>{const confidence=confidenceFor(team.matches);const history=historyByTeam.get(team.id)??[];const decayedRating=computeRating(history,cutoff);return{...team,rating:decayedRating,events:team.events.size,confidence,displayedStrength:decayedRating-confidence,form:history.slice(-5).map(row=>({event:row.event,change:row.change,tier:row.tier,champion:row.champion}))}}).sort((a,b)=>b.rating-a.rating||a.number.localeCompare(b.number));
   const groups=Array.from({length:Math.ceil(rated.length/100)},(_,index)=>rated.slice(index*100,index*100+100));
   const detailPayloads=await mapLimit(groups,3,async group=>{const ids=group.map(team=>`id%5B%5D=${team.id}`).join('&');return vexCollection(`${API_ROOT}/teams?${ids}`,headers)});
   const official=new Map(detailPayloads.flat().map(team=>[team.id,team]));
