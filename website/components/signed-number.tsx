@@ -24,6 +24,7 @@ export default function SignedNumber({ value, accentFrom, className = '' }: { va
     const svg = root.current;
     if (!svg) return;
     const paths = [...svg.querySelectorAll('path')];
+    const characterCount = Array.from(text).length;
     if (!paths.length) return;
 
     // Reduced motion: leave it fully written rather than animating or hiding.
@@ -32,21 +33,33 @@ export default function SignedNumber({ value, accentFrom, className = '' }: { va
       return;
     }
 
-    const PEN_SPEED = 0.62;   // ms per user unit
-    const PEN_LIFT = 55;      // pause between strokes, as the hand repositions
+    const PEN_SPEED = 1.15;   // ms per user unit, at the start of the signature
+    const PEN_LIFT = 70;      // pause between strokes, as the hand repositions
+    const FINAL_DRAG = 1.35;  // extra slowness by the last character (2.35x total)
     const animations: Animation[] = [];
     let at = 180;             // let the profile header settle first
 
+    // Deceleration is keyed to the character, not the stroke: a hand eases off
+    // through the whole final character rather than only its last stroke.
+    const lastCharacter = Math.max(1, characterCount - 1);
+
     for (const path of paths) {
+      const characterIndex = Number(path.dataset.character ?? 0);
+      const through = characterIndex / lastCharacter;          // 0 -> 1
+      // Pow > 1 keeps the early characters near full speed and concentrates the
+      // slowdown at the end, which is where it reads as deliberate rather than
+      // as the whole thing simply being sluggish.
+      const drag = 1 + FINAL_DRAG * through ** 1.7;
+
       const length = path.getTotalLength();
       path.style.strokeDasharray = String(length);
       path.style.strokeDashoffset = String(length);
-      const duration = Math.max(90, length * PEN_SPEED);
+      const duration = Math.max(120, length * PEN_SPEED * drag);
       animations.push(path.animate(
         [{ strokeDashoffset: length }, { strokeDashoffset: 0 }],
-        { duration, delay: at, easing: 'cubic-bezier(0.4, 0, 0.5, 1)', fill: 'both' },
+        { duration, delay: at, easing: 'cubic-bezier(0.32, 0, 0.35, 1)', fill: 'both' },
       ));
-      at += duration + PEN_LIFT;
+      at += duration + PEN_LIFT * drag;
     }
     return () => animations.forEach(animation => animation.cancel());
   }, [text]);
@@ -77,6 +90,7 @@ export default function SignedNumber({ value, accentFrom, className = '' }: { va
               strokeWidth={7}
               strokeLinecap="round"
               strokeLinejoin="round"
+              data-character={index}
             />
           ))}
         </g>
