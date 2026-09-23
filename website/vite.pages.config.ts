@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   root:fileURLToPath(new URL('./static-site',import.meta.url)),
-  base:'/Vex-Rank/',
+  base:'/',
   publicDir:fileURLToPath(new URL('./public',import.meta.url)),
   resolve:{alias:{'@':fileURLToPath(new URL('.',import.meta.url))}},
   plugins:[react()],
@@ -13,7 +13,7 @@ export default defineConfig({
   css:{postcss:{plugins:[tailwindcss()]}},
   define:{
     __VEX_API_BASE__:JSON.stringify(process.env.VEX_API_BASE || 'https://vexrank-api-test.vexrank-eason.workers.dev'),
-    __VEX_ASSET_BASE__:JSON.stringify('/Vex-Rank/'),
+    __VEX_ASSET_BASE__:JSON.stringify('/'),
   },
   build:{outDir:'../dist-pages',emptyOutDir:true},
 });
