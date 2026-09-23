@@ -41,7 +41,7 @@ async function dispatch(url: URL) {
 
 function cors(response: Response) {
   const result = new Response(response.body, response);
-  result.headers.set('Access-Control-Allow-Origin', 'https://easonli29.github.io');
+  result.headers.set('Access-Control-Allow-Origin', 'https://vex-rank.com');
   result.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   result.headers.set('X-Content-Type-Options', 'nosniff');
   return result;
