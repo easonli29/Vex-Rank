@@ -33,3 +33,14 @@ test('empty and unrecognised hashes are handled distinctly', () => {
   assert.equal(hashToRoute('#/nope'), null, 'unknown route is ignored, not guessed');
   assert.equal(hashToRoute('#/teams/%E0%A4%A'), null, 'malformed encoding must not throw');
 });
+
+test('a team at an event carries both identifiers both ways', () => {
+  assert.equal(routeToHash('teamEvent', { number: '31260X' }, { id: 64604 }), '#/events/64604/teams/31260X');
+  assert.deepEqual(hashToRoute('#/events/64604/teams/31260X'), { view: 'teamEvent', eventId: '64604', teamNumber: '31260X' });
+});
+
+test('a team at an event missing either half falls back to what it has', () => {
+  assert.equal(routeToHash('teamEvent', {}, { id: 64604 }), '#/events/64604');
+  assert.equal(routeToHash('teamEvent', { number: '31260X' }, {}), '#/events');
+  assert.deepEqual(hashToRoute('#/events/64604/teams'), { view: 'event', eventId: '64604' });
+});
