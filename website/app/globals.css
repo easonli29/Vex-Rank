@@ -655,3 +655,7 @@ html.dark { --background: var(--c-page); }
   width: 16rem;
   transform: translateY(-50%);
 }
+
+/* Strength hexagon grows out from its centre on first paint. The global
+   reduced-motion rule above removes the transition, leaving the final shape. */
+.strength-shape { transition: transform .9s cubic-bezier(.2, .8, .2, 1); }
