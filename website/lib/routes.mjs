@@ -21,6 +21,7 @@ export function routeToHash(view, team, event) {
   }
   if (view === 'event') return event?.id ? `#/events/${encodeURIComponent(String(event.id))}` : '#/events';
   if (view === 'home') return '#/';
+  if (view === 'stats') return '#/rankings'; // Stat leaders is hidden until its data is ready.
   return `#/${view}`;
 }
 
@@ -44,6 +45,6 @@ export function hashToRoute(hash) {
   if (head === 'events' && param && sub === 'teams' && subParam) return { view: 'teamEvent', eventId: param, teamNumber: subParam };
   if (head === 'events') return param ? { view: 'event', eventId: param } : { view: 'events' };
   if (head === 'teams') return param ? { view: 'team', teamNumber: param } : { view: 'teams' };
-  if (head === 'rankings' || head === 'stats') return { view: head };
+  if (head === 'rankings' || head === 'stats') return { view: 'rankings' };
   return null;
 }

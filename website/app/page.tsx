@@ -183,7 +183,7 @@ export default function Home() {
   useEffect(()=>{
     try {
       const saved=JSON.parse(sessionStorage.getItem('vexrank-navigation')??'null');
-      if(saved){if(saved.view)setView(saved.view);if(saved.selectedTeam)setSelectedTeam(saved.selectedTeam);if(saved.selectedEvent)setSelectedEvent(saved.selectedEvent);if(saved.eventSearch!=null)setEventSearch(saved.eventSearch);if(saved.teamSearch!=null)setTeamSearch(saved.teamSearch);if(saved.region)setRegion(saved.region);if(saved.eventClass)setEventClass(saved.eventClass);if(saved.format)setFormat(saved.format);if(saved.time)setTime(saved.time);if(saved.grade)setGrade(saved.grade);if(saved.eventExtras)setEventExtras(saved.eventExtras);if(saved.teamRegion)setTeamRegion(saved.teamRegion);if(saved.teamDirectoryRegion)setTeamDirectoryRegion(saved.teamDirectoryRegion);if(saved.rankingRange)setRankingRange(saved.rankingRange);if(saved.rankingViewState)setRankingViewState(saved.rankingViewState);if(saved.teamReturnView)setTeamReturnView(saved.teamReturnView);if(saved.teamEventReturnView)setTeamEventReturnView(saved.teamEventReturnView);requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,saved.scrollY??0)))}
+      if(saved){if(saved.view)setView(saved.view==='stats'?'rankings':saved.view);if(saved.selectedTeam)setSelectedTeam(saved.selectedTeam);if(saved.selectedEvent)setSelectedEvent(saved.selectedEvent);if(saved.eventSearch!=null)setEventSearch(saved.eventSearch);if(saved.teamSearch!=null)setTeamSearch(saved.teamSearch);if(saved.region)setRegion(saved.region);if(saved.eventClass)setEventClass(saved.eventClass);if(saved.format)setFormat(saved.format);if(saved.time)setTime(saved.time);if(saved.grade)setGrade(saved.grade);if(saved.eventExtras)setEventExtras(saved.eventExtras);if(saved.teamRegion)setTeamRegion(saved.teamRegion);if(saved.teamDirectoryRegion)setTeamDirectoryRegion(saved.teamDirectoryRegion);if(saved.rankingRange)setRankingRange(saved.rankingRange);if(saved.rankingViewState)setRankingViewState(saved.rankingViewState);if(saved.teamReturnView)setTeamReturnView(saved.teamReturnView==='stats'?'rankings':saved.teamReturnView);if(saved.teamEventReturnView)setTeamEventReturnView(saved.teamEventReturnView);requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,saved.scrollY??0)))}
     } catch {}
     // Outside the try, and outside the saved branch: an explicit URL must win
     // over restored state, and must still work when there is no saved state at
@@ -286,7 +286,7 @@ export default function Home() {
   },[]);
 
   const go = (next: View) => {
-    setView(next); setMobile(false);
+    setView(next==='stats'?'rankings':next); setMobile(false);
     // Instant, not smooth. A smooth scroll from deep in a long list takes
     // ~700ms, during which the new view is already rendered and its entrance
     // animations have started - on a team profile that means the signature is
@@ -317,7 +317,7 @@ export default function Home() {
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-8 px-5 lg:px-8">
         <button aria-label="Go home" onClick={() => go('home')}><AppLogo /></button>
         <nav className="hidden h-full items-center gap-7 text-sm font-semibold text-white/55 md:flex">
-          {([['events','Events'],['rankings','Rankings'],['stats','Stat leaders'],['teams','Teams']] as const).map(([id,label]) => <button key={id} onClick={() => go(id)} className={`h-full border-b-2 transition ${view === id || (view === 'team' && id === teamReturnView) ? 'border-[var(--c-accent)] text-white' : 'border-transparent hover:text-white'}`}>{label}</button>)}
+          {([['events','Events'],['rankings','Rankings'],['teams','Teams']] as const).map(([id,label]) => <button key={id} onClick={() => go(id)} className={`h-full border-b-2 transition ${view === id || (view === 'team' && id === teamReturnView) ? 'border-[var(--c-accent)] text-white' : 'border-transparent hover:text-white'}`}>{label}</button>)}
         </nav>
         <div className="ml-auto" />
         <a href="https://discord.gg/Gu4TUEmhhY" target="_blank" rel="noopener noreferrer" aria-label="Join the VEXRank Discord" title="Join the VEXRank Discord" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 transition hover:border-white/35 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--c-accent)]">
@@ -326,7 +326,7 @@ export default function Home() {
         <ThemePicker />
         <button className="ml-auto md:hidden" onClick={() => setMobile(!mobile)} aria-label="Toggle navigation">{mobile ? <X /> : <Menu />}</button>
       </div>
-      {mobile && <nav className="border-t border-white/10 bg-[var(--c-chrome)] p-4 md:hidden">{(['events','rankings','stats','teams'] as View[]).map(v => <button key={v} onClick={() => go(v)} className="block w-full border-b border-white/10 px-2 py-3 text-left font-bold capitalize">{v === 'stats' ? 'Stat leaders' : v}</button>)}</nav>}
+      {mobile && <nav className="border-t border-white/10 bg-[var(--c-chrome)] p-4 md:hidden">{(['events','rankings','teams'] as View[]).map(v => <button key={v} onClick={() => go(v)} className="block w-full border-b border-white/10 px-2 py-3 text-left font-bold capitalize">{v}</button>)}</nav>}
     </header>
 
     <div key={view} className="view-enter">
@@ -361,7 +361,7 @@ function HomeView({ go, openTeam, openEvent, eventRows, teamRows, loading, error
       </div>
     </section>
     <section className="mx-auto max-w-[1440px] px-5 py-8 lg:px-8"><div className="mb-5 flex items-center justify-between"><div><p className="text-[11px] italic text-white/45">On the calendar</p><h2 className="font-display mt-1 text-2xl">Upcoming Signature Events</h2></div><button onClick={() => go('events')} className="text-sm font-bold text-white/50 hover:text-white">Browse calendar</button></div><div className="grid gap-3 md:grid-cols-3">{featured.slice(0,3).map(e => <button onClick={() => openEvent(e)} key={e.id} className="group flex overflow-hidden border border-white/10 bg-[var(--c-surface)] text-left hover:-translate-y-0.5 hover:border-white/25"><div className="grid w-20 place-items-center border-r border-white/10 bg-white/[.025] py-5 text-center"><span><small className="block font-bold text-[var(--c-accent)]">{new Date(`${e.date}T12:00:00`).toLocaleString('en',{month:'short'}).toUpperCase()}</small><b className="block text-3xl">{e.date.slice(-2)}</b></span></div><span className="min-w-0 p-4"><Tier value={e.tier} /><b className="mt-2 block truncate group-hover:text-[var(--c-accent)]">{e.name}</b><small className="mt-2 block truncate text-white/55">{e.city}{e.teams ? ` · ${e.teams} teams` : ''}</small><small className="mt-1 block text-white/25">{e.rankLocked?'Rank locked':`Locks ${new Date(e.rankLockDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})}`}</small></span></button>)}</div></section>
-    <section className="mx-auto grid max-w-[1440px] gap-4 px-5 py-8 md:grid-cols-3 lg:px-8"><StatFeature icon={<Gauge />} title="VCR team rating" copy="Compare provisional team ratings based on recorded match results and opponent strength." /><StatFeature icon={<Globe2 />} title="Event strength" copy="Explore upcoming Signature Events and their registered fields." /><StatFeature icon={<BarChart3 />} title="Stat leaders" copy="Compare the best offensive, defensive, autonomous and strategic teams in the world." /></section>
+    <section className="mx-auto grid max-w-[1440px] gap-4 px-5 py-8 md:grid-cols-2 lg:px-8"><StatFeature icon={<Gauge />} title="VCR team rating" copy="Compare provisional team ratings based on recorded match results and opponent strength." /><StatFeature icon={<Globe2 />} title="Event strength" copy="Explore upcoming Signature Events and their registered fields." /></section>
   </>;
 }
 
