@@ -94,4 +94,6 @@ Create a focused branch and pull request with the problem, change and checks per
 
 ## Access and review roles
 
-The repository owner is the maintainer with full settings and `main` access. Other contributors should fork this public repository and open a pull request; they do not need collaborator access to propose changes. The owner is listed in `.github/CODEOWNERS` for review of every path. A branch rule on `main` enforces the review workflow. Do not grant collaborator write access to someone who only needs to contribute a pull request.
+The three project maintainers are `easonli29`, `fredyang88`, and `StevenQQian`. They have repository Admin access and are listed in `.github/CODEOWNERS` for every path. The `main` branch requires a pull request, one approval, Code Owner review, and resolved conversations for ordinary contributors; administrators can bypass those review requirements when necessary. Force pushes and branch deletion remain disabled for everyone.
+
+Other contributors should fork this public repository and open a pull request; they do not need repository access to propose changes. If direct access is needed, grant only the minimum role required, such as Read or Triage, rather than Admin or Write. Repository Admin is not the same as organization Owner: the latter also controls organization-wide membership and settings.
