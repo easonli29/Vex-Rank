@@ -144,7 +144,7 @@ const events = [
 
 
 
-function AppLogo() { return <span className="flex items-center gap-2 font-semibold tracking-[-.04em]"><span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--c-accent)] text-sm italic">V</span><span className="text-xl">VEX<span className="text-[var(--c-accent)]">-Rank</span></span></span>; }
+function AppLogo() { return <span className="flex items-center gap-2 font-semibold tracking-[-.04em]"><img src="/vex-rank-icon.png" alt="" aria-hidden="true" className="h-8 w-8 shrink-0 object-contain" /><span className="text-xl">VEX<span className="text-[var(--c-accent)]">-Rank</span></span></span>; }
 function liveTeamsLabel(rows:any[]) { return rows[0]?.matches ? 'Provisional live VCR' : 'Loading live VCR'; }
 function Tier({ value='Official' }: { value?: string }) { const cls = value.includes('Gold') || value === 'Worlds' ? 'bg-amber-400/10 text-amber-300 border-amber-400/20' : value.includes('Silver') ? 'bg-slate-300/10 text-slate-200 border-slate-300/20' : value.includes('Bronze') ? 'bg-orange-400/10 text-orange-300 border-orange-400/20' : 'bg-white/5 text-white/55 border-white/10'; return <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${cls}`}>{value}</span>; }
 function EventStatus({ value='Upcoming' }: { value?: string }) { const normalized=value.toLowerCase();const cls=normalized==='cancelled'?'text-[#ff3347]':normalized==='upcoming'?'text-sky-400':'text-emerald-400';return <span className={`text-[10px] font-bold uppercase tracking-wider ${cls}`}>{value}</span>; }
