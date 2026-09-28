@@ -91,3 +91,7 @@ Supported historical season IDs are 197, 190, 181 and 173. The command calls the
 ## GitHub and deployment
 
 Create a focused branch and pull request with the problem, change and checks performed. Avoid committing dependencies, local caches, credentials or unrelated generated data. Deployment instructions live in [website/cloudflare/DEPLOYMENT.md](website/cloudflare/DEPLOYMENT.md); their status notes describe a previous deployment and should be checked before operational use. The root `.github/workflows/github-pages-test.yml` workflow publishes the frontend when manually dispatched. A source-code update alone does not deploy the API or rebuild historical archives.
+
+## Access and review roles
+
+The repository owner is the maintainer with full settings and `main` access. Other contributors should fork this public repository and open a pull request; they do not need collaborator access to propose changes. The owner is listed in `.github/CODEOWNERS` for review of every path. A branch rule on `main` enforces the review workflow. Do not grant collaborator write access to someone who only needs to contribute a pull request.
