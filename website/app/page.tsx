@@ -341,7 +341,7 @@ export default function Home() {
     {view === 'team' && <TeamView key={`${selectedTeam.number}:${selectedTeam.seasonId??selectedTeam.season??''}`} team={selectedTeam} goBack={() => go(teamReturnView)} backLabel={teamReturnView==='rankings'?'rankings':teamReturnView==='stats'?'stat leaders':teamReturnView==='events'||teamReturnView==='event'?'event':'teams'} openEvent={openEvent} openTeamAtEvent={openTeamAtEvent} />}
     </div>
 
-    <footer className="mt-16 border-t border-white/10 bg-[var(--c-chrome)]"><div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-5 py-8 text-xs text-white/50 sm:flex-row sm:items-center lg:px-8"><AppLogo /><p>Independent V5RC analytics using official Event.VEX results.</p><p className="sm:ml-auto">VCR model · 2026–27 season</p></div></footer>
+    <footer className="mt-16 border-t border-white/10 bg-[var(--c-chrome)]"><div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-5 py-8 text-xs text-white/50 sm:flex-row sm:items-center lg:px-8"><AppLogo /><p>Independent V5RC analytics using official Event.VEX results.</p><p className="sm:ml-auto">VCR model · 2026–27 season</p></div><p className="mx-auto max-w-[1440px] border-t border-white/10 px-5 py-4 text-[11px] leading-relaxed text-white/40 lg:px-8">VEX-Rank is not affiliated with VEX Robotics and is not a VEX product. Team, event and match data comes from the events.vex.com API. Ratings and statistics are calculated by VEX-Rank and are not official.</p></footer>
   </main>;
 }
 
