@@ -43,3 +43,11 @@ export function PixelPaw({ size = 18 }: { size?: number }) {
     {rows.flatMap((row, y) => row.split('').map((c, x) => c === 'o' ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" /> : null))}
   </svg>;
 }
+
+/** The speech bubble on the Ask button. */
+export function PixelChat({ size = 18 }: { size?: number }) {
+  const rows = ['.oooooo.', 'o......o', 'o.o.o..o', 'o......o', '.oo.ooo.', '..oo....'];
+  return <svg viewBox="0 0 8 6" width={size} height={size * 6 / 8} shapeRendering="crispEdges" aria-hidden="true">
+    {rows.flatMap((row, y) => row.split('').map((c, x) => c === 'o' ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" /> : null))}
+  </svg>;
+}

@@ -226,7 +226,7 @@ export function reactionFor(ctx) {
     return { text: `${tier}${size}${when}.` };
   }
   const tips = {
-    home: `Hi, I'm ${ctx.name || 'Paka'}! Click me and type a team number to jump straight to it.`,
+    home: `Hi, I'm ${ctx.name || 'Paka'}! Boop me, stroke me, or press the speech bubble beside me to ask about teams and events.`,
     rankings: 'Tip: click me and try "compare 1698Z 471B".',
     events: 'Tip: click me and try "next event near ontario".',
     teams: 'Tip: "follow" a team and I\'ll keep an eye on their results.',
@@ -251,4 +251,30 @@ export function moodAfterAway(mood, hoursAway) {
 }
 export function moodWord(mood) {
   return mood >= 90 ? 'Ecstatic' : mood >= 75 ? 'Happy' : mood >= 55 ? 'Content' : 'A bit lonely';
+}
+
+// Gestures. The widget feeds in raw pointer samples; these decide what they meant.
+
+/** How often a horizontal stroke changed direction, ignoring jitter under `minTravel` px. */
+export function countReversals(xs, minTravel = 6) {
+  let reversals = 0;
+  let direction = 0;
+  let anchor = xs[0];
+  for (const x of xs.slice(1)) {
+    const travel = x - anchor;
+    if (Math.abs(travel) < minTravel) continue;
+    const next = Math.sign(travel);
+    if (direction && next !== direction) reversals += 1;
+    direction = next;
+    anchor = x;
+  }
+  return reversals;
+}
+
+/** Stroking: the pointer went back and forth across the cat at least four times. */
+export const isStroke = xs => countReversals(xs) >= 4;
+
+/** Three clicks inside `windowMs` are zoomies; anything less is a boop. */
+export function isTripleClick(times, now, windowMs = 900) {
+  return times.filter(time => now - time <= windowMs).length >= 3;
 }

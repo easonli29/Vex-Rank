@@ -688,8 +688,21 @@ html.dark { --background: var(--c-page); }
 .paka-cat { transition: transform 120ms steps(2); }
 /* The outline is near-black, like the page; a faint halo keeps the cat's edge. */
 .paka-cat svg, .paka-box svg { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .45)); }
-.paka-cat:hover:not(.paka-walk) { translate: 0 -2px; }
+.paka-cat:hover:not(.paka-walk):not(.paka-dragging) { translate: 0 -2px; }
 .paka-walk svg { animation: paka-bob 320ms steps(2) infinite; }
+.paka-cat { cursor: grab; touch-action: none; }
+.paka-dragging { cursor: grabbing; }
+.paka-hop svg { animation: paka-hop 450ms steps(4); }
+.paka-purr svg { animation: paka-purr 110ms steps(2) infinite; }
+.paka-held svg { transform: translateY(-8px); }
+.paka-drop svg { animation: paka-drop 320ms steps(3); }
+/* The Ask button is quiet until the reader is near Paka. */
+.paka-ask { opacity: .45; transition: opacity 150ms; background: var(--c-surface-2); border: 2px solid rgba(255, 255, 255, .16); box-shadow: 2px 2px 0 rgba(0, 0, 0, .45); }
+.paka:hover .paka-ask, .paka-ask:focus-visible, .paka-ask-open { opacity: 1; }
+.paka-ask-open { border-color: var(--c-accent); }
+@keyframes paka-hop { 40% { transform: translateY(-10px); } 70% { transform: translateY(-4px); } }
+@keyframes paka-purr { 50% { transform: translateX(1px); } }
+@keyframes paka-drop { 0% { transform: translateY(-8px); } 60% { transform: translateY(1px); } }
 .paka-asleep svg { animation: paka-breathe 2.4s steps(2) infinite; }
 .paka-heart { animation: paka-heart 1.2s steps(6) forwards; }
 .paka-z { animation: paka-z 2.4s steps(4) infinite; }

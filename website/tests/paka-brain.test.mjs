@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseCommand, needs, runCommand, reactionFor, newResults, shortName,
+  parseCommand, needs, runCommand, reactionFor, newResults, shortName, countReversals, isStroke, isTripleClick,
   moodAfterPet, moodAfterAway, moodWord, MOOD_FLOOR,
 } from '../components/paka/brain.mjs';
 import { loadState, saveState, sanitize, freshState, STORAGE_KEY, PALETTES, PATTERNS } from '../components/paka/store.mjs';
@@ -188,4 +188,18 @@ test('every sprite frame is a 16×16 grid using only known colours', () => {
     }
   }
   for (const palette of PALETTES) assert.deepEqual(Object.keys(PALETTE_COLOURS[palette]).sort(), [...Object.keys(PALETTE_COLOURS.grey)].sort(), palette);
+});
+
+test('a stroke is the pointer going back and forth, not jitter', () => {
+  assert.equal(countReversals([0, 20, 0, 20, 0, 20]), 4);
+  assert.ok(isStroke([0, 20, 0, 20, 0, 20]));
+  assert.equal(countReversals([0, 2, 0, 3, 1, 2, 0]), 0, 'jitter under 6px is ignored');
+  assert.ok(!isStroke([0, 10, 20, 30, 40, 50]), 'a straight pass is not a stroke');
+  assert.ok(!isStroke([0, 20, 0, 20]), 'two reversals are not enough');
+});
+
+test('three quick clicks are zoomies', () => {
+  assert.ok(isTripleClick([1000, 1300, 1600], 1600));
+  assert.ok(!isTripleClick([1000, 1600], 1600));
+  assert.ok(!isTripleClick([0, 1300, 1600], 1600), 'the first click is too old');
 });

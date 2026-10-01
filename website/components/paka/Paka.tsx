@@ -6,9 +6,9 @@
  * browser only. Desktop only: index.tsx decides whether this file loads.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { needs, newResults, parseCommand, reactionFor, runCommand, moodAfterPet, moodWord } from './brain.mjs';
+import { needs, newResults, parseCommand, reactionFor, runCommand, moodAfterPet, moodWord, isStroke, isTripleClick } from './brain.mjs';
 import { loadState, saveState, PALETTES, PATTERNS } from './store.mjs';
-import { PakaSprite, PixelHeart, PixelPaw, type Eyes } from './sprite';
+import { PakaSprite, PixelHeart, PixelPaw, PixelChat, type Eyes } from './sprite';
 import { siteFetch } from '@/lib/client-fetch';
 
 type Effect = { type: string; [key: string]: any };
@@ -44,6 +44,9 @@ const REACTION_COOLDOWN_MS = 25_000;
 const BUBBLE_MS = 9_000;
 const WANDER_RANGE_PX = 260;
 const SPEED_PX_PER_S = 70;
+const ZOOMIES_PX_PER_S = 520;
+const DRAG_THRESHOLD_PX = 6;
+const STROKE_WINDOW_MS = 1200;
 const SUGGESTIONS = ['55288A', 'compare 1698Z 471B', 'top 5 in ontario', 'next event', 'random'];
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
@@ -75,11 +78,22 @@ export default function Paka(props: PakaProps) {
   const [reply, setReply] = useState<Reply | null>(null);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [hearts, setHearts] = useState<number[]>([]);
+  const [hearts, setHearts] = useState<{ id: number; dx: number }[]>([]);
+  // A one-off body animation: a hop for a boop, a purr, held in the air, landing.
+  const [move, setMove] = useState<'hop' | 'purr' | 'held' | 'drop' | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [ownTeams, setOwnTeams] = useState<any[]>([]);
   const [ownEvents, setOwnEvents] = useState<any[]>([]);
 
   const catRef = useRef<HTMLButtonElement>(null);
+  const askRef = useRef<HTMLButtonElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const press = useRef<{ x: number; startRight: number; moved: boolean } | null>(null);
+  const strokes = useRef<{ x: number; t: number }[]>([]);
+  const lastPurr = useRef(0);
+  const clicks = useRef<number[]>([]);
+  const swallowClick = useRef(false);
+  const moveTimer = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastActivity = useRef(0);
   const asleepRef = useRef(false);
@@ -121,17 +135,70 @@ export default function Paka(props: PakaProps) {
     return { teams: loadedTeams, events: loadedEvents };
   }, [teams, events]);
 
-  const pet = useCallback(() => {
+  const pet = useCallback((heartCount = 1, happyMs = 900) => {
+    lastActivity.current = Date.now();
     setAsleep(false);
     setEyes('happy');
-    window.setTimeout(() => setEyes('open'), 900);
+    window.setTimeout(() => setEyes('open'), happyMs);
     if (!calm) {
-      const id = Date.now() + Math.random();
-      setHearts(list => [...list, id]);
-      window.setTimeout(() => setHearts(list => list.filter(entry => entry !== id)), 1200);
+      // Staggered and spread out, so a purr reads as a stream of hearts.
+      for (let index = 0; index < heartCount; index += 1) {
+        window.setTimeout(() => {
+          const heart = { id: Date.now() + Math.random(), dx: Math.round(rand(-18, 18)) };
+          setHearts(list => [...list, heart]);
+          window.setTimeout(() => setHearts(list => list.filter(entry => entry.id !== heart.id)), 1200);
+        }, index * 260);
+      }
     }
     setState(current => ({ ...current, pets: current.pets + 1, mood: moodAfterPet(current.mood) }));
   }, [calm]);
+
+  const animate = useCallback((kind: 'hop' | 'purr' | 'held' | 'drop' | null, ms = 0) => {
+    window.clearTimeout(moveTimer.current);
+    setMove(calm ? null : kind);
+    if (kind && ms) moveTimer.current = window.setTimeout(() => setMove(null), ms);
+  }, [calm]);
+
+  // Click: a boop on the nose.
+  const boop = useCallback(() => { pet(1); animate('hop', 450); }, [pet, animate]);
+
+  // Stroking back and forth: a long purr.
+  const purr = useCallback(() => { pet(4, 1800); animate('purr', 1600); }, [pet, animate]);
+
+  // Triple-click: a dash to the far side of its patch and back.
+  const zoomies = useCallback(() => {
+    pet(2);
+    if (calm) return;
+    const start = x;
+    const far = start < WANDER_RANGE_PX / 2 ? Math.min(window.innerWidth - 120, 520) : 0;
+    const there = Math.abs(far - start) / ZOOMIES_PX_PER_S * 1000;
+    const back = Math.abs(far - start) / ZOOMIES_PX_PER_S * 1000;
+    setEyes('wide');
+    setWalking(true);
+    setFlipped(far < start);
+    setWalkMs(there);
+    setX(far);
+    window.setTimeout(() => {
+      setFlipped(start < far);
+      setWalkMs(back);
+      setX(start);
+      window.setTimeout(() => { setWalking(false); setEyes('open'); }, back);
+    }, there + 120);
+  }, [pet, calm, x]);
+
+  const openAsk = useCallback(() => {
+    lastActivity.current = Date.now();
+    setAsleep(false);
+    setBubble(null);
+    setSettings(false);
+    setPanel(true);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+
+  const closeAsk = useCallback((refocus: boolean) => {
+    setPanel(false);
+    if (refocus) askRef.current?.focus();
+  }, []);
 
   const perform = useCallback((effect: Effect) => {
     switch (effect.type) {
@@ -223,7 +290,7 @@ export default function Paka(props: PakaProps) {
 
   // A stroll along the bottom edge now and then, when nothing else is going on.
   useEffect(() => {
-    if (calm || asleep || panel || bubble) return;
+    if (calm || asleep || panel || bubble || dragging || walking) return;
     const timer = window.setTimeout(() => {
       const target = Math.round(rand(0, WANDER_RANGE_PX));
       const ms = Math.abs(target - x) / SPEED_PX_PER_S * 1000;
@@ -236,7 +303,7 @@ export default function Paka(props: PakaProps) {
       window.setTimeout(() => setWalking(false), ms);
     }, rand(20_000, 40_000));
     return () => window.clearTimeout(timer);
-  }, [calm, asleep, panel, bubble, x]);
+  }, [calm, asleep, panel, bubble, dragging, walking, x]);
 
   // Climb above the footer rather than sit on the disclaimer.
   useEffect(() => {
@@ -297,10 +364,16 @@ export default function Paka(props: PakaProps) {
   // Esc closes the panel and hands focus back to the cat.
   useEffect(() => {
     if (!panel) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setPanel(false); catRef.current?.focus(); } };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') closeAsk(true); };
+    // A press anywhere outside Paka (panel, cat and buttons) closes the box.
+    // Focus is left where the reader clicked rather than pulled back.
+    const onPointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) closeAsk(false);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [panel]);
+    document.addEventListener('pointerdown', onPointer, true);
+    return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onPointer, true); };
+  }, [panel, closeAsk]);
 
   const days = Math.max(1, Math.ceil((openedAt - state.firstSeen) / 86_400_000));
 
@@ -313,9 +386,60 @@ export default function Paka(props: PakaProps) {
   }
 
   const shownEyes: Eyes = asleep ? 'closed' : eyes;
-  const onCat = () => { lastActivity.current = Date.now(); pet(); if (!panel) { setPanel(true); setSettings(false); window.setTimeout(() => inputRef.current?.focus(), 0); } };
 
-  return <div className="paka fixed z-40 select-none" style={{ right: 20 + x, bottom: 12 + lift, transition: `right ${walkMs}ms linear, bottom 200ms ease-out` }}>
+  // Pointer handling on the cat itself: press and drag to carry it, stroke to
+  // make it purr, click to boop, three quick clicks for zoomies.
+  const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    press.current = { x: event.clientX, startRight: x, moved: false };
+    // Keeps the drag going if the pointer outruns the cat. Can throw for a
+    // pointer that is already gone; the drag then simply ends on release.
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* see above */ }
+  };
+  const onPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const held = press.current;
+    if (held) {
+      const dx = event.clientX - held.x;
+      if (!held.moved && Math.abs(dx) > DRAG_THRESHOLD_PX) {
+        held.moved = true;
+        setDragging(true);
+        setAsleep(false);
+        setEyes('wide');
+        setWalkMs(0);
+        animate('held');
+      }
+      if (held.moved) {
+        setFlipped(dx > 0);
+        setX(Math.max(0, Math.min(window.innerWidth - 100, held.startRight - dx)));
+      }
+      return;
+    }
+    const now = Date.now();
+    strokes.current = [...strokes.current.filter(sample => now - sample.t < STROKE_WINDOW_MS), { x: event.clientX, t: now }];
+    if (now - lastPurr.current > 2500 && isStroke(strokes.current.map(sample => sample.x))) {
+      lastPurr.current = now;
+      strokes.current = [];
+      purr();
+    }
+  };
+  const onPointerUp = () => {
+    const held = press.current;
+    press.current = null;
+    if (!held?.moved) return;
+    swallowClick.current = true;
+    setDragging(false);
+    setEyes('open');
+    animate('drop', 320);
+  };
+  const onClick = () => {
+    // A drop ends with a click event too; that one isn't a boop.
+    if (swallowClick.current) { swallowClick.current = false; return; }
+    const now = Date.now();
+    clicks.current = [...clicks.current.filter(time => now - time < 1000), now];
+    if (isTripleClick(clicks.current, now)) { clicks.current = []; zoomies(); } else boop();
+  };
+
+  return <div ref={rootRef} className="paka fixed z-40 select-none" style={{ right: 20 + x, bottom: 12 + lift, transition: `right ${walkMs}ms linear, bottom 200ms ease-out` }}>
     {/* Speech bubble */}
     {bubble && !panel && <output aria-live="polite" className="paka-box absolute bottom-full right-0 mb-2 block w-72">
       <p className="whitespace-pre-line text-[13px] leading-snug text-white/85">{bubble.text}</p>
@@ -331,7 +455,7 @@ export default function Paka(props: PakaProps) {
         <span className="text-xs font-semibold uppercase tracking-wider text-white/50">{settings ? `${state.name}'s card` : `Ask ${state.name}`}</span>
         <span className="flex gap-2">
           <button onClick={() => setSettings(value => !value)} className="text-xs text-white/45 hover:text-white">{settings ? 'Back' : 'Settings'}</button>
-          <button onClick={() => { setPanel(false); catRef.current?.focus(); }} aria-label="Close" className="text-sm leading-none text-white/45 hover:text-white">×</button>
+          <button onClick={() => closeAsk(true)} aria-label="Close" className="text-sm leading-none text-white/45 hover:text-white">×</button>
         </span>
       </div>
 
@@ -378,14 +502,21 @@ export default function Paka(props: PakaProps) {
     </dialog>}
 
     {/* Hearts and Zzz */}
-    {hearts.map(id => <span key={id} className="paka-heart pointer-events-none absolute left-1/2 top-0"><PixelHeart /></span>)}
+    {hearts.map(heart => <span key={heart.id} className="paka-heart pointer-events-none absolute top-0" style={{ left: `calc(50% + ${heart.dx}px)` }}><PixelHeart /></span>)}
     {asleep && <span aria-hidden="true" className="paka-z pointer-events-none absolute -top-2 right-0 font-mono text-xs font-bold text-white/60">z<span className="text-[10px]">z</span></span>}
 
+    {/* Ask: the one way into the panel, so playing with the cat never opens it. */}
+    <button ref={askRef} onClick={() => panel ? closeAsk(false) : openAsk()} aria-expanded={panel} aria-haspopup="dialog"
+      aria-label={`Ask ${state.name}`} title={`Ask ${state.name}`}
+      className={`paka-ask absolute -left-7 top-0 grid h-7 w-7 place-items-center text-white/70 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--c-accent)] ${panel ? 'paka-ask-open' : ''}`}>
+      <PixelChat />
+    </button>
+
     {/* The cat */}
-    <button ref={catRef} onClick={onCat} aria-expanded={panel} aria-haspopup="dialog"
-      aria-label={`${state.name}, your cat${asleep ? ' (napping)' : ''}. Click to pet and ask a question.`}
-      title={asleep ? `${state.name} is napping` : `Pet ${state.name}`}
-      className={`paka-cat block rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--c-accent)] ${walking ? 'paka-walk' : ''} ${asleep ? 'paka-asleep' : ''}`}
+    <button ref={catRef} onClick={onClick} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+      aria-label={`${state.name}, your cat${asleep ? ' (napping)' : ''}. Click to boop, click three times for zoomies.`}
+      title={asleep ? `${state.name} is napping` : `Boop, stroke or drag ${state.name}`}
+      className={`paka-cat block rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--c-accent)] ${walking ? 'paka-walk' : ''} ${asleep ? 'paka-asleep' : ''} ${move ? `paka-${move}` : ''} ${dragging ? 'paka-dragging' : ''}`}
       style={{ transform: flipped ? 'scaleX(-1)' : undefined }}>
       <PakaSprite coat={state.coat} eyes={shownEyes} tailUp={awake && tailUp} />
     </button>
