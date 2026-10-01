@@ -7,6 +7,7 @@ import { teamMatches, teamStanding, recordCheck, momentum as teamMomentum, stren
 import { siteFetch } from '@/lib/client-fetch';
 import { bracketRound } from '@/lib/bracket';
 import { routeToHash, hashToRoute } from '@/lib/routes.mjs';
+import PakaLoader from '@/components/paka';
 import { vexCountries, vexEventRegions, eventRegionsForCountry } from '@/lib/event-regions.mjs';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -45,6 +46,12 @@ function ThemePicker(){
     document.documentElement.dataset.theme=theme;
     try{localStorage.setItem(THEME_KEY,theme)}catch{/* private mode: theme lasts the session */}
   },[theme]);
+  // Paka can change the theme too ("theme ember"); follow it so the label matches.
+  useEffect(()=>{
+    const onPaka=(event:Event)=>{const id=(event as CustomEvent<string>).detail;if(THEMES.some(entry=>entry.id===id))setTheme(id)};
+    window.addEventListener('vexrank-theme',onPaka);
+    return()=>window.removeEventListener('vexrank-theme',onPaka);
+  },[]);
   const choose=(id:string)=>{setTheme(id);setOpen(false)};
   const current=THEMES.find(entry=>entry.id===theme)??THEMES[0];
   return <div className="relative">
@@ -342,6 +349,10 @@ export default function Home() {
     </div>
 
     <footer className="mt-16 border-t border-white/10 bg-[var(--c-chrome)]"><div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-5 py-8 text-xs text-white/50 sm:flex-row sm:items-center lg:px-8"><AppLogo /><p>Independent V5RC analytics using official Event.VEX results.</p><p className="sm:ml-auto">VCR model · 2026–27 season</p></div><p className="mx-auto max-w-[1440px] border-t border-white/10 px-5 py-4 text-[11px] leading-relaxed text-white/40 lg:px-8">VEX-Rank is not affiliated with VEX Robotics and is not a VEX product. Team, event and match data comes from the events.vex.com API. Ratings and statistics are calculated by VEX-Rank and are not official.</p></footer>
+    {/* Paka, the pixel cat: desktop only, loaded once the page is idle. */}
+    <PakaLoader view={view} selectedTeam={selectedTeam} selectedEvent={selectedEvent} teamRows={teamRows}
+      eventRows={homeEvents.length?homeEvents:eventExtras.season==='2026–27: Override'?eventRows:[]}
+      go={go} openTeam={openTeam} openEvent={openEvent} />
   </main>;
 }
 
