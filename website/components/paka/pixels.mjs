@@ -1,7 +1,7 @@
 /**
  * Paka as 16×16 pixel art. Each frame is a grid of letters, one per pixel:
  *   o outline   b body   s stripe/shade   w light fur (muzzle, belly)
- *   p pink (inner ear, blush)   n nose   e eye   g eye highlight   . clear
+ *   p pink (inner ear, blush)   n nose   e eye   g eye highlight   t tongue   . clear
  * Rows are assembled from parts so the eyes and tail animate independently.
  * Plain JS so the tests can check every frame (tests/paka-brain.test.mjs).
  */
@@ -20,6 +20,7 @@ export const EYES = {
   wide: ['.obgebbbbgebo...', '.obeebbbbeebo...'],
   closed: ['.obbbbbbbbbbo...', '.oboobbbboobo...'],
   happy: ['.obbbbbbbbbbo...', '.oboobbbboobo...'],
+  wink: ['.obegbbbbbbbo...', '.obeebbbboobo...'],
 };
 
 const MUZZLE = { plain: '.obbbbnnbbbbo...', blush: '.opbbbnnbbbpo...' };
@@ -52,14 +53,15 @@ export const PATTERN_PIXELS = {
 };
 
 export const PALETTE_COLOURS = {
-  grey: { o: '#1d1c22', b: '#8d909a', s: '#62656f', w: '#ece8df', p: '#f2a7b5', n: '#e57b8b', e: '#1d1c22', g: '#ffffff' },
-  orange: { o: '#2a1a10', b: '#e9953c', s: '#b8621b', w: '#fbe9d0', p: '#f6a9a0', n: '#d9645a', e: '#2a1a10', g: '#ffffff' },
-  black: { o: '#08080a', b: '#34343d', s: '#22222a', w: '#e9e6df', p: '#c9808f', n: '#c9808f', e: '#f5d547', g: '#fffbe0' },
-  white: { o: '#4a4a55', b: '#f3f1ec', s: '#cfc9bd', w: '#ffffff', p: '#f4b2bf', n: '#e8899a', e: '#3b82f6', g: '#ffffff' },
-  cream: { o: '#3a2c1c', b: '#e8d5b0', s: '#c4a675', w: '#fbf6ea', p: '#f2b0b4', n: '#dd8a8f', e: '#3a2c1c', g: '#ffffff' },
+  grey: { o: '#1d1c22', b: '#8d909a', s: '#62656f', w: '#ece8df', p: '#f2a7b5', n: '#e57b8b', e: '#1d1c22', g: '#ffffff', t: '#e05a72' },
+  orange: { o: '#2a1a10', b: '#e9953c', s: '#b8621b', w: '#fbe9d0', p: '#f6a9a0', n: '#d9645a', e: '#2a1a10', g: '#ffffff', t: '#d9506a' },
+  black: { o: '#08080a', b: '#34343d', s: '#22222a', w: '#e9e6df', p: '#c9808f', n: '#c9808f', e: '#f5d547', g: '#fffbe0', t: '#d9667e' },
+  white: { o: '#4a4a55', b: '#f3f1ec', s: '#cfc9bd', w: '#ffffff', p: '#f4b2bf', n: '#e8899a', e: '#3b82f6', g: '#ffffff', t: '#e2607a' },
+  cream: { o: '#3a2c1c', b: '#e8d5b0', s: '#c4a675', w: '#fbf6ea', p: '#f2b0b4', n: '#dd8a8f', e: '#3a2c1c', g: '#ffffff', t: '#d85a70' },
 };
 
-export function frame(eyes, tailUp, pattern) {
+/** `tongue` sticks the tip out under the muzzle: a blep. */
+export function frame(eyes, tailUp, pattern, tongue = false) {
   const rows = [
     ...HEAD,
     ...EYES[eyes],
@@ -70,5 +72,6 @@ export function frame(eyes, tailUp, pattern) {
     // Only repaint fur, so a pattern can never draw over an outline or an eye.
     if (rows[row]?.[col] === 'b') rows[row][col] = letter;
   }
+  if (tongue) { rows[10][6] = 't'; rows[10][7] = 't'; }
   return rows.map(row => row.join(''));
 }

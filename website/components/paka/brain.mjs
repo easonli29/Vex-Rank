@@ -278,3 +278,37 @@ export const isStroke = xs => countReversals(xs) >= 4;
 export function isTripleClick(times, now, windowMs = 900) {
   return times.filter(time => now - time <= windowMs).length >= 3;
 }
+
+// Click tricks. Each click picks one at random, never the same twice running.
+// The calm set changes only the face, for readers who asked for reduced motion.
+export const TRICKS = ['hop', 'spin', 'roll', 'stretch', 'meow', 'blep', 'wink', 'lookAround', 'sneeze', 'chaseTail'];
+export const CALM_TRICKS = ['meow', 'blep', 'wink'];
+export const MEOWS = ['Mrrp!', 'Meow!', 'Nya~', 'Mew?', 'Prrt!', 'Mrow.'];
+
+export function pickTrick(last, calm = false, random = Math.random) {
+  const pool = (calm ? CALM_TRICKS : TRICKS).filter(trick => trick !== last);
+  return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
+}
+
+/**
+ * Where Paka may sit: `x` and `y` are its distance from the right and bottom
+ * edges. It must stay fully on screen and below the sticky header (`top`),
+ * which is drawn in front of it and would leave it impossible to grab.
+ */
+export function clampPosition(pos, viewport, size = 64, margin = { right: 20, bottom: 12, top: 0 }) {
+  const maxX = Math.max(0, viewport.width - size - margin.right);
+  const maxY = Math.max(0, viewport.height - size - margin.bottom - (margin.top ?? 0));
+  return {
+    x: Math.round(Math.max(0, Math.min(maxX, pos.x))),
+    y: Math.round(Math.max(0, Math.min(maxY, pos.y))),
+  };
+}
+
+/** Open boxes on the side with room: above unless near the top, leftward unless near the left edge. */
+export function placement(cat, viewport, box = { width: 320, height: 360 }) {
+  return {
+    above: cat.top >= box.height,
+    alignLeft: cat.left + cat.width < box.width,
+    askOnRight: cat.left < 40,
+  };
+}

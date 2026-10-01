@@ -23,6 +23,8 @@ export function freshState(now = Date.now(), random = Math.random) {
     hidden: false,
     reactions: true,
     following: [],
+    // Distance from the bottom-right corner; the widget keeps it on screen.
+    pos: { x: 0, y: 0 },
   };
 }
 
@@ -49,6 +51,10 @@ export function sanitize(raw, now = Date.now(), random = Math.random) {
         .slice(0, 50)
         .map(entry => ({ number: entry.number, matches: Number.isFinite(entry.matches) ? entry.matches : 0 }))
       : [],
+    pos: {
+      x: Number.isFinite(raw.pos?.x) ? Math.max(0, Math.min(10000, raw.pos.x)) : 0,
+      y: Number.isFinite(raw.pos?.y) ? Math.max(0, Math.min(10000, raw.pos.y)) : 0,
+    },
   };
 }
 

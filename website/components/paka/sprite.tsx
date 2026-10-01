@@ -1,7 +1,7 @@
 /** Draws Paka's frames (pixels.mjs) as crisp SVG. */
 import { frame, PALETTE_COLOURS } from './pixels.mjs';
 
-export type Eyes = 'open' | 'closed' | 'wide' | 'happy';
+export type Eyes = 'open' | 'closed' | 'wide' | 'happy' | 'wink';
 export type Coat = { palette: string; pattern: string };
 
 /** One rect per horizontal run of a colour: ~60 rects instead of ~200. */
@@ -20,10 +20,10 @@ function runs(rows: string[]) {
   return rects;
 }
 
-export function PakaSprite({ coat, eyes, tailUp, size = 64 }: { coat: Coat; eyes: Eyes; tailUp: boolean; size?: number }) {
+export function PakaSprite({ coat, eyes, tailUp, tongue = false, size = 64 }: { coat: Coat; eyes: Eyes; tailUp: boolean; tongue?: boolean; size?: number }) {
   const colours = (PALETTE_COLOURS as Record<string, Record<string, string>>)[coat.palette] ?? PALETTE_COLOURS.grey;
   return <svg viewBox="0 0 16 16" width={size} height={size} shapeRendering="crispEdges" aria-hidden="true" style={{ imageRendering: 'pixelated', display: 'block' }}>
-    {runs(frame(eyes, tailUp, coat.pattern) as string[]).map(({ x, y, w, c }) => <rect key={`${x}-${y}`} x={x} y={y} width={w} height={1} fill={colours[c]} />)}
+    {runs(frame(eyes, tailUp, coat.pattern, tongue) as string[]).map(({ x, y, w, c }) => <rect key={`${x}-${y}`} x={x} y={y} width={w} height={1} fill={colours[c]} />)}
   </svg>;
 }
 

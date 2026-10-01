@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseCommand, needs, runCommand, reactionFor, newResults, shortName, countReversals, isStroke, isTripleClick,
+  pickTrick, TRICKS, CALM_TRICKS, clampPosition, placement,
   moodAfterPet, moodAfterAway, moodWord, MOOD_FLOOR,
 } from '../components/paka/brain.mjs';
 import { loadState, saveState, sanitize, freshState, STORAGE_KEY, PALETTES, PATTERNS } from '../components/paka/store.mjs';
@@ -179,8 +180,8 @@ test('mood settles for time away when loading', () => {
 
 test('every sprite frame is a 16×16 grid using only known colours', () => {
   const letters = new Set(['.', ...Object.keys(PALETTE_COLOURS.grey)]);
-  for (const eyes of Object.keys(EYES)) for (const tailUp of [false, true]) for (const pattern of PATTERNS) {
-    const rows = frame(eyes, tailUp, pattern);
+  for (const eyes of Object.keys(EYES)) for (const tailUp of [false, true]) for (const pattern of PATTERNS) for (const tongue of [false, true]) {
+    const rows = frame(eyes, tailUp, pattern, tongue);
     assert.equal(rows.length, 16, `${eyes}/${tailUp}/${pattern}`);
     for (const row of rows) {
       assert.equal(row.length, 16, `${eyes}/${tailUp}/${pattern}: ${row}`);
@@ -202,4 +203,48 @@ test('three quick clicks are zoomies', () => {
   assert.ok(isTripleClick([1000, 1300, 1600], 1600));
   assert.ok(!isTripleClick([1000, 1600], 1600));
   assert.ok(!isTripleClick([0, 1300, 1600], 1600), 'the first click is too old');
+});
+
+test('click tricks are random, never repeat back to back, and stay calm when asked', () => {
+  const seen = new Set();
+  let last = null;
+  for (let i = 0; i < 400; i += 1) {
+    const trick = pickTrick(last, false, Math.random);
+    assert.notEqual(trick, last);
+    assert.ok(TRICKS.includes(trick));
+    seen.add(trick);
+    last = trick;
+  }
+  assert.equal(seen.size, TRICKS.length, 'every trick turns up');
+  for (let i = 0; i < 50; i += 1) assert.ok(CALM_TRICKS.includes(pickTrick(null, true)));
+  assert.equal(pickTrick('hop', false, () => 0.999999), TRICKS.filter(t => t !== 'hop').at(-1));
+});
+
+test('Paka stays fully on screen wherever it is dropped', () => {
+  const viewport = { width: 1280, height: 800 };
+  assert.deepEqual(clampPosition({ x: -50, y: -10 }, viewport), { x: 0, y: 0 });
+  assert.deepEqual(clampPosition({ x: 5000, y: 5000 }, viewport), { x: 1196, y: 724 });
+  assert.deepEqual(clampPosition({ x: 300.4, y: 200.6 }, viewport), { x: 300, y: 201 });
+  assert.deepEqual(clampPosition({ x: 10, y: 10 }, { width: 20, height: 20 }), { x: 0, y: 0 });
+  assert.deepEqual(clampPosition({ x: 0, y: 5000 }, viewport, 64, { right: 20, bottom: 12, top: 72 }), { x: 0, y: 652 }, 'never under the header');
+});
+
+test('boxes open where there is room', () => {
+  const viewport = { width: 1280, height: 800 };
+  assert.deepEqual(placement({ left: 1100, top: 700, width: 64 }, viewport), { above: true, alignLeft: false, askOnRight: false });
+  assert.deepEqual(placement({ left: 10, top: 40, width: 64 }, viewport), { above: false, alignLeft: true, askOnRight: true });
+});
+
+test('a blep shows the tongue under the muzzle, and a wink shuts one eye', () => {
+  assert.equal(frame('open', false, 'solid', true)[10].slice(6, 8), 'tt');
+  assert.ok(!frame('open', false, 'solid', false).join('').includes('t'));
+  const wink = frame('wink', false, 'solid');
+  assert.equal(wink[7].slice(3, 5), 'ee');
+  assert.equal(wink[7].slice(9, 11), 'oo');
+});
+
+test('a stored position is kept, and nonsense is reset to the corner', () => {
+  assert.deepEqual(sanitize({ pos: { x: 120, y: 340 } }).pos, { x: 120, y: 340 });
+  assert.deepEqual(sanitize({ pos: { x: 'a', y: -5 } }).pos, { x: 0, y: 0 });
+  assert.deepEqual(sanitize({}).pos, { x: 0, y: 0 });
 });
